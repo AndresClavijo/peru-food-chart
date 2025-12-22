@@ -1,13 +1,21 @@
 // src/lib/prisma.ts
-import 'dotenv/config';
 import { PrismaClient } from '../generated/prisma/client';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 
-const connectionString = `${process.env.DATABASE_URL ?? 'file:./dev.db'}`;
+const connectionString = process.env.DATABASE_URL;
 
-const adapter = new PrismaBetterSqlite3({
-  url: connectionString,
+if (!connectionString) {
+  throw new Error('DATABASE_URL no está definida en el entorno');
+}
+
+// Creamos un pool de conexiones de pg usando la URL de Supabase
+const pool = new pg.Pool({
+  connectionString,
 });
+
+// Creamos el adapter para Prisma 7
+const adapter = new PrismaPg(pool);
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -16,12 +24,13 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    adapter,
+    adapter,               // 👈 clave: usamos el adapter
     log: ['error', 'warn'],
   });
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
+
 
 

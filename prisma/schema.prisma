@@ -1,11 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// prisma/schema.prisma
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 generator client {
@@ -27,10 +23,11 @@ model Vote {
   userId    String?
   dish      Dish     @relation(fields: [dishId], references: [id])
   dishId    Int
-  x         Float    // [0..1] barato -> caro
-  y         Float    // [0..1] no tan rico -> muy rico
+  x         Float
+  y         Float
   createdAt DateTime @default(now())
 }
+
 
 
 
