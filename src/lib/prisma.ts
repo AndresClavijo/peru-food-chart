@@ -1,7 +1,7 @@
 // src/lib/prisma.ts
 import { PrismaClient } from '../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
+import { Pool } from 'pg';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -10,11 +10,11 @@ if (!connectionString) {
 }
 
 // Creamos un pool de conexiones de pg usando la URL de Supabase
-const pool = new pg.Pool({
+const pool = new Pool({
   connectionString,
 });
 
-// Creamos el adapter para Prisma 7
+// Creamos el adapter para Prisma 7 + Postgres
 const adapter = new PrismaPg(pool);
 
 const globalForPrisma = globalThis as unknown as {
@@ -24,13 +24,14 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    adapter,               // 👈 clave: usamos el adapter
+    adapter,
     log: ['error', 'warn'],
   });
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
+
 
 
 
