@@ -1,80 +1,132 @@
-'use client';
+// src/components/ChartBoard.tsx
 
-import type { ReactNode } from 'react';
+const BOARD_SIZE = 500;
+const GRID_STEPS = 6; // 6 x 6 → 36 cuadrantes
 
-type ChartBoardProps = {
-  children?: ReactNode;
-};
+export default function ChartBoard() {
+  // Posiciones (en %) de las líneas internas (5 líneas para 6 divisiones)
+  const positions = Array.from({ length: GRID_STEPS - 1 }, (_, i) => ((i + 1) / GRID_STEPS) * 100);
 
-export default function ChartBoard({ children }: ChartBoardProps) {
   return (
     <div
       id="chart-board"
       style={{
         position: 'relative',
-        width: 500,
-        height: 500,
+        width: BOARD_SIZE,
+        height: BOARD_SIZE,
         border: '1px solid #ccc',
-        margin: '0 auto',
-        userSelect: 'none',
-        background: '#fafafa',
+        backgroundColor: '#f7f7f7',
       }}
     >
-      {/* Líneas de ejes (cuatro cuadrantes) */}
-      {/* Eje horizontal */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: 0,
-          width: '100%',
-          height: 1,
-          backgroundColor: '#ddd',
-          pointerEvents: 'none',
-        }}
-      />
-      {/* Eje vertical */}
-      <div
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: 0,
-          width: 1,
-          height: '100%',
-          backgroundColor: '#ddd',
-          pointerEvents: 'none',
-        }}
-      />
+      {/* Líneas verticales (incluye eje central más grueso/oscuro) */}
+      {positions.map((p, idx) => {
+        const isCenter = idx === Math.floor((GRID_STEPS - 1) / 2); // la tercera de 5 → 50%
+        return (
+          <div
+            key={`v-${idx}`}
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: `${p}%`,
+              width: isCenter ? 3 : 1,
+              backgroundColor: isCenter ? '#000' : 'rgba(0,0,0,0.15)',
+              transform: 'translateX(-50%)',
+            }}
+          />
+        );
+      })}
 
-      {/* Etiqueta eje X */}
+      {/* Líneas horizontales (incluye eje central más grueso/oscuro) */}
+      {positions.map((p, idx) => {
+        const isCenter = idx === Math.floor((GRID_STEPS - 1) / 2);
+        return (
+          <div
+            key={`h-${idx}`}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: `${p}%`,
+              height: isCenter ? 3 : 1,
+              backgroundColor: isCenter ? '#000' : 'rgba(0,0,0,0.15)',
+              transform: 'translateY(-50%)',
+            }}
+          />
+        );
+      })}
+
+      {/* Etiquetas de los ejes */}
+
+      {/* Arriba: Barato (sobre el eje vertical, cerca del borde superior) */}
       <div
         style={{
           position: 'absolute',
+          top: 6,
           left: '50%',
-          bottom: -24,
           transform: 'translateX(-50%)',
-          fontSize: 12,
+          fontSize: 18,
+          fontWeight: 'bold',
+          backgroundColor: '#f7f7f7', // mismo fondo para "cortar" la línea
+          padding: '0 8px',
+          boxShadow: '0 0 3px rgba(0,0,0,0.05)',
         }}
       >
-        Barato ← Precio → Muy caro
+        Barato
       </div>
 
-      {/* Etiqueta eje Y */}
+      {/* Abajo: Caro (sobre el eje vertical, cerca del borde inferior) */}
       <div
         style={{
           position: 'absolute',
-          top: '50%',
-          left: -10,
-          transform: 'translateY(-50%) rotate(-90deg)',
-          transformOrigin: 'left center',
-          fontSize: 12,
+          bottom: 6,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          fontSize: 18,
+          fontWeight: 'bold',
+          backgroundColor: '#f7f7f7',
+          padding: '0 8px',
+          boxShadow: '0 0 3px rgba(0,0,0,0.05)',
         }}
       >
-        No tan rico ← Sabor → Muy rico
+        Caro
       </div>
 
-      {children}
+      {/* Izquierda: No tan rico (sobre el eje horizontal, cerca del borde izquierdo) */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 6,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          fontSize: 18,
+          fontWeight: 'bold',
+          backgroundColor: '#f7f7f7',
+          padding: '0 8px',
+          boxShadow: '0 0 3px rgba(0,0,0,0.05)',
+        }}
+      >
+        No tan rico
+      </div>
+
+      {/* Derecha: Rico (sobre el eje horizontal, cerca del borde derecho) */}
+      <div
+        style={{
+          position: 'absolute',
+          right: 6,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          fontSize: 18,
+          fontWeight: 'bold',
+          backgroundColor: '#f7f7f7',
+          padding: '0 8px',
+          boxShadow: '0 0 3px rgba(0,0,0,0.05)',
+        }}
+      >
+        Rico
+      </div>
     </div>
   );
 }
+
 
