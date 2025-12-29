@@ -24,3 +24,24 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes dish-wobble {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  25% {
+    transform: translateY(-2px) rotate(-1deg);
+  }
+
+  75% {
+    transform: translateY(2px) rotate(1deg);
+  }
+}
+
+/* Efecto de “está vivo, arrástrame” */
+.animate-dish-hint {
+  animation: dish-wobble 0.8s ease-in-out infinite alternate;
+}
