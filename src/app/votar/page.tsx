@@ -10,18 +10,28 @@ type Dish = {
   imageUrl?: string;
 };
 
-type AverageItem = {
+type VotePos = { x: number; y: number };
+
+type RawAverage = {
   dishId: number;
-  name: string;
+  name?: string;
   imageUrl?: string | null;
-  avgX: number | null;
-  avgY: number | null;
+  avgX: number;
+  avgY: number;
   count: number;
 };
 
-type Position = { x: number; y: number };
+type AverageMapItem = {
+  x: number;
+  y: number;
+  count: number;
+};
 
-// Lista de platos con nombres e imágenes (pon las imágenes en /public)
+type Plane2View = 'average' | 'user';
+
+const BOARD_SIZE = 500;
+const PALETTE_HEIGHT = 110;
+
 const DISHES: Dish[] = [
   { id: 1, name: 'Ceviche', imageUrl: '/ceviche.png' },
   { id: 2, name: 'Lomo Saltado', imageUrl: '/lomo-saltado.png' },
@@ -38,7 +48,7 @@ const DISHES: Dish[] = [
   { id: 13, name: 'Pachamanca', imageUrl: '/pachamanca.png' },
 ];
 
-// Marcador de resultados (plano de “vista”)
+// Marcador para el plano 2: solo círculo, nombre en tooltip y burbuja al pasar el mouse
 function ResultDishMarker({
   name,
   imageUrl,
@@ -46,152 +56,164 @@ function ResultDishMarker({
   y,
 }: {
   name: string;
-  imageUrl?: string | null;
+  imageUrl?: string;
   x: number;
   y: number;
 }) {
-  // x,y están en [0,1], los mapeamos a % dentro del plano
-  const left = `${x * 100}%`;
-  const top = `${(1 - y) * 100}%`; // y=1 arriba, y=0 abajo
+  const [hover, setHover] = useState(false);
+
+  const left = x * 100;
+  const top = (1 - y) * 100;
 
   return (
     <div
+      title={name}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         position: 'absolute',
-        left,
-        top,
+        left: `${left}%`,
+        top: `${top}%`,
         transform: 'translate(-50%, -50%)',
-        width: 48,
-        height: 48,
-        borderRadius: '50%',
-        overflow: 'hidden',
-        background: '#fff',
-        border: '1px solid #999',
+        width: 32,
+        height: 32,
+        pointerEvents: 'auto',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: 9,
-        textAlign: 'center',
-        padding: 4,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
       }}
-      title={name}
     >
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={name}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-      ) : (
-        <span>{name}</span>
+      <div
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: '50%',
+          overflow: 'hidden',
+          border: '2px solid #16a34a',
+          background: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+        }}
+      >
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : null}
+      </div>
+
+      {/* Tooltip custom encima del círculo (solo si hover) */}
+      {hover && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 32,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            color: '#fff',
+            padding: '4px 8px',
+            borderRadius: 999,
+            fontSize: 11,
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+          }}
+        >
+          {name}
+        </div>
       )}
     </div>
   );
 }
 
 export default function VotarPage() {
-  // Votos del usuario en esta sesión (coordenadas normalizadas)
-  const [votes, setVotes] = useState<Record<number, Position>>({});
+  const [votes, setVotes] = useState<Record<number, VotePos>>({});
+  const [averages, setAverages] = useState<Record<number, AverageMapItem>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [plane2View, setPlane2View] = useState<Plane2View>('average'); // 👈 default: promedio
 
-  // Vista de resultados: 'user' = mis votos, 'average' = promedio
-  const [viewMode, setViewMode] = useState<'user' | 'average'>('user');
-  const [averages, setAverages] = useState<Record<number, { x: number; y: number; count: number }>>(
-    {},
-  );
-  const [averagesLoaded, setAveragesLoaded] = useState(false);
+  const placedCount = Object.keys(votes).length;
+  const remaining = DISHES.length - placedCount;
 
   function handleChange(id: number, x: number, y: number) {
-    setVotes((prev) => ({ ...prev, [id]: { x, y } }));
+    setVotes((prev) => ({
+      ...prev,
+      [id]: { x, y },
+    }));
   }
 
-  async function handleSubmit() {
-  const payload = {
-    votes: Object.entries(votes).map(([dishId, coord]) => ({
-      dishId: Number(dishId),
-      x: coord.x,
-      y: coord.y,
-    })),
-  };
-
-  if (payload.votes.length === 0) {
-    alert('Arrastra al menos un plato al plano antes de enviar.');
-    return;
-  }
-
-  setSubmitting(true);
-  try {
-    const res = await fetch('/api/votes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const text = await res.text(); // 👈 leemos texto crudo
-    console.log('Respuesta cruda /api/votes:', res.status, text);
-
-    if (!res.ok) {
-      alert('Hubo un error al guardar tus votos. Código: ' + res.status);
-      return;
-    }
-
-    // si quieres, intentar parsear JSON
-    let data: any = null;
+  async function fetchAverages() {
     try {
-      data = JSON.parse(text);
-    } catch (e) {
-      console.warn('La respuesta no es JSON válido, pero el status es OK.');
-    }
-
-    console.log('Respuesta parseada /api/votes:', data);
-    alert('¡Gracias! Tus votos fueron recibidos por el servidor (test).');
-  } catch (err) {
-    console.error('Error en fetch /api/votes:', err);
-    alert('Error de conexión con el servidor.');
-  } finally {
-    setSubmitting(false);
-  }
-}
-
-
-  async function handleShowUserView() {
-    setViewMode('user');
-  }
-
-async function handleShowAverageView() {
-  setViewMode('average');
-
-  try {
-    const res = await fetch('/api/averages');
-    if (!res.ok) {
-      console.error('Error al obtener promedios');
-      return;
-    }
-
-    const data = (await res.json()) as AverageItem[];
-    console.log('Promedios recibidos:', data); // 👈 para ver qué llega
-
-    const map: Record<number, { x: number; y: number; count: number }> = {};
-    data.forEach((item) => {
-      if (item.avgX !== null && item.avgY !== null) {
+      setLoadingResults(true);
+      const res = await fetch('/api/averages');
+      if (!res.ok) {
+        console.error('Error al cargar promedios:', res.status);
+        return;
+      }
+      const data: RawAverage[] = await res.json();
+      const map: Record<number, AverageMapItem> = {};
+      for (const item of data) {
         map[item.dishId] = {
           x: item.avgX,
           y: item.avgY,
           count: item.count,
         };
       }
-    });
-
-    console.log('Mapa de promedios:', map); // 👈 para ver qué se va a pintar
-
-    setAverages(map);
-    setAveragesLoaded(true);
-  } catch (err) {
-    console.error('Error en fetch /api/averages', err);
+      setAverages(map);
+    } catch (error) {
+      console.error('Error fetch /api/averages:', error);
+    } finally {
+      setLoadingResults(false);
+    }
   }
-}
 
+  async function handleSeeOthers() {
+    if (placedCount === 0) {
+      alert('Primero arrastra al menos un plato al plano antes de continuar.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const payload = {
+        votes: Object.entries(votes).map(([dishId, pos]) => ({
+          dishId: Number(dishId),
+          x: pos.x,
+          y: pos.y,
+        })),
+      };
+
+      const res = await fetch('/api/votes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+      console.log('Respuesta /api/votes:', res.status, text);
+
+      if (!res.ok) {
+        alert('Hubo un error al guardar tus votos. Código: ' + res.status);
+        return;
+      }
+
+      // Cargar promedios y pasar al plano 2
+      await fetchAverages();
+      setPlane2View('average'); // aseguramos que entre mostrando el promedio
+      setHasSubmitted(true);
+    } catch (error) {
+      console.error('Error enviando votos:', error);
+      alert('Ocurrió un error al enviar tus opiniones.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <main
@@ -207,176 +229,291 @@ async function handleShowAverageView() {
       }}
     >
       <section style={{ textAlign: 'center', maxWidth: 700 }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 'bold' }}>
+        <h1 style={{ fontSize: '2.4rem', fontWeight: 'bold' }}>
           Evaluar platos de comida peruana
         </h1>
-        <p style={{ marginTop: '0.5rem' }}>
-          Arrastra cada plato desde la bandeja inferior hacia el plano según qué tan{' '}
+        <p style={{ marginTop: '0.5rem', fontSize: 15 }}>
+          Arrastra cada plato desde la fila superior hacia el plano según qué tan{' '}
           <b>barato o caro</b> y qué tan <b>rico o no tan rico</b> te parece.
         </p>
       </section>
 
-      {/* Área de drag: plano arriba + bandeja de platos abajo */}
-      <section>
-        <div
-          id="drag-area"
-          style={{
-            position: 'relative',
-            width: 500,
-            height: 650, // 500 del plano + ~150 para la bandeja
-          }}
-        >
-          {/* Plano cartesiano para arrastrar */}
-          <ChartBoard />
-
-          {/* Platos en bandeja (debajo del plano) */}
-          {DISHES.map((dish, idx) => {
-            const columns = 4;
-            const col = idx % columns;
-            const row = Math.floor(idx / columns);
-
-            const initialX = (col + 0.5) / columns; // 0..1
-            const initialY = row; // 0,1,2,...
-
-            return (
-              <DraggableDish
-                key={dish.id}
-                id={dish.id}
-                name={dish.name}
-                imageUrl={dish.imageUrl}
-                initialX={initialX}
-                initialY={initialY}
-                onChange={handleChange}
-              />
-            );
-          })}
-        </div>
-
-        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
+      {/* Plano 1: votar (solo mientras no se ha enviado) */}
+      {!hasSubmitted && (
+        <section>
+          <div
             style={{
-              padding: '0.5rem 1.5rem',
-              borderRadius: 999,
-              border: '1px solid #333',
-              background: submitting ? '#eee' : '#fff',
-              cursor: submitting ? 'default' : 'pointer',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '2rem',
             }}
           >
-            {submitting ? 'Enviando...' : 'Enviar mis opiniones'}
-          </button>
-        </div>
-      </section>
+            {/* Plano + fila de platos */}
+            <div
+              id="drag-area"
+              style={{
+                position: 'relative',
+                width: BOARD_SIZE,
+                height: BOARD_SIZE + PALETTE_HEIGHT,
+              }}
+            >
+              {/* Plano cartesiano desplazado hacia abajo */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: PALETTE_HEIGHT,
+                }}
+              >
+                <ChartBoard />
+              </div>
 
-      {/* Plano de resultados con los dos modos */}
-      <section style={{ width: 500 }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', textAlign: 'center' }}>
-          Resultados en el plano cartesiano
-        </h2>
-
-        <div style={{ marginTop: '1rem', position: 'relative' }}>
-          <ChartBoard>
-            {/* Vista "Mis votos": usamos las coordenadas que el usuario definió */}
-            {viewMode === 'user' &&
-              DISHES.map((dish) => {
-                const pos = votes[dish.id];
-                if (!pos) return null; // si no lo arrastró, no lo mostramos
+              {/* Platos en fila superior */}
+              {DISHES.map((dish, idx) => {
+                const initialX = (idx + 0.5) / DISHES.length;
                 return (
-                  <ResultDishMarker
-                    key={`user-${dish.id}`}
+                  <DraggableDish
+                    key={dish.id}
+                    id={dish.id}
                     name={dish.name}
                     imageUrl={dish.imageUrl}
-                    x={pos.x}
-                    y={pos.y}
+                    initialX={initialX}
+                    initialY={0}
+                    onChange={handleChange}
                   />
                 );
               })}
+            </div>
 
-            {/* Vista "Promedio gente": usamos las coordenadas promedio de la BD */}
-            {viewMode === 'average' &&
-              DISHES.map((dish) => {
-                const avg = averages[dish.id];
-                if (!avg || avg.count === 0) return null;
-                return (
-                  <ResultDishMarker
-                    key={`avg-${dish.id}`}
-                    name={dish.name}
-                    imageUrl={dish.imageUrl}
-                    x={avg.x}
-                    y={avg.y}
-                  />
-                );
-              })}
-              {viewMode === 'average' &&
-                Object.keys(averages).length === 0 && (
-                    <div
+            {/* Columna derecha: progreso + botón verde */}
+            <div
+              style={{
+                minWidth: 210,
+                fontSize: 14,
+              }}
+            >
+              <h3
+                style={{
+                  fontWeight: 'bold',
+                  marginBottom: '0.5rem',
+                  fontSize: 18,
+                }}
+              >
+                Progreso
+              </h3>
+              <p style={{ marginBottom: '1rem' }}>
+                Te faltan{' '}
+                <span
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {remaining}
+                </span>{' '}
+                plato{remaining === 1 ? '' : 's'} por colocar
+              </p>
+
+              {placedCount > 0 && (
+                <div style={{ marginTop: '1.5rem' }}>
+                  <p
                     style={{
-                        position: 'absolute',
-                        inset: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        pointerEvents: 'none',
-                        fontSize: 14,
-                        color: '#666',
-                        textAlign: 'center',
-                        padding: '0 1rem',
+                      fontWeight: 'bold',
+                      marginBottom: '0.5rem',
                     }}
-                    >
+                  >
+                    ¿Listo?
+                  </p>
+                  <button
+                    onClick={handleSeeOthers}
+                    disabled={submitting}
+                    style={{
+                      padding: '0.6rem 1.6rem',
+                      borderRadius: 999,
+                      border: 'none',
+                      background: '#22c55e',
+                      color: '#fff',
+                      cursor: submitting ? 'default' : 'pointer',
+                      fontSize: 15,
+                      fontWeight: 600,
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+                    }}
+                  >
+                    {submitting ? 'Enviando...' : 'Ver cómo votaron los demás'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Plano 2: resultados (solo después de enviar) */}
+      {hasSubmitted && (
+        <section style={{ width: BOARD_SIZE }}>
+          <h2
+            style={{
+              fontSize: '1.6rem',
+              fontWeight: 'bold',
+              textAlign: 'center',
+            }}
+          >
+            Resultados en el plano cartesiano
+          </h2>
+
+          <p
+            style={{
+              textAlign: 'center',
+              marginTop: '0.25rem',
+              fontSize: 14,
+              color: '#555',
+            }}
+          >
+            Cada círculo muestra la posición de los platos. Pasa el mouse por encima
+            para ver el nombre.
+          </p>
+
+          <div
+            style={{
+              marginTop: '1rem',
+              position: 'relative',
+              width: BOARD_SIZE,
+              height: BOARD_SIZE,
+            }}
+          >
+            <ChartBoard />
+
+            {/* Contenedor de vistas con fade */}
+            <div style={{ position: 'absolute', inset: 0 }}>
+              {/* Vista promedio */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  opacity: plane2View === 'average' ? 1 : 0,
+                  transition: 'opacity 0.4s ease',
+                  pointerEvents: plane2View === 'average' ? 'auto' : 'none',
+                }}
+              >
+                {Object.keys(averages).length === 0 && !loadingResults && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                      color: '#666',
+                      textAlign: 'center',
+                      padding: '0 1rem',
+                    }}
+                  >
                     Aún no hay suficientes votos para mostrar el promedio.
-                    <br />
-                    Pide a más personas que envíen sus opiniones.
-                    </div>
+                  </div>
                 )}
-          </ChartBoard>
-        </div>
 
-        {/* Botones DEBAJO del plano de resultados */}
-        <div
-          style={{
-            marginTop: '0.75rem',
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '0.75rem',
-          }}
-        >
-          <button
-            onClick={handleShowUserView}
+                {DISHES.map((dish) => {
+                  const avg = averages[dish.id];
+                  if (!avg || avg.count === 0) return null;
+                  return (
+                    <ResultDishMarker
+                      key={`avg-${dish.id}`}
+                      name={dish.name}
+                      imageUrl={dish.imageUrl}
+                      x={avg.x}
+                      y={avg.y}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Vista "mis votos" */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  opacity: plane2View === 'user' ? 1 : 0,
+                  transition: 'opacity 0.4s ease',
+                  pointerEvents: plane2View === 'user' ? 'auto' : 'none',
+                }}
+              >
+                {Object.keys(votes).length === 0 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                      color: '#666',
+                      textAlign: 'center',
+                      padding: '0 1rem',
+                    }}
+                  >
+                    No registramos votos tuyos en el plano.
+                  </div>
+                )}
+
+                {DISHES.map((dish) => {
+                  const pos = votes[dish.id];
+                  if (!pos) return null;
+                  return (
+                    <ResultDishMarker
+                      key={`user-${dish.id}`}
+                      name={dish.name}
+                      imageUrl={dish.imageUrl}
+                      x={pos.x}
+                      y={pos.y}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Botones debajo del plano 2 */}
+          <div
             style={{
-              padding: '0.4rem 1rem',
-              borderRadius: 999,
-              border: '1px solid #333',
-              background: viewMode === 'user' ? '#333' : '#fff',
-              color: viewMode === 'user' ? '#fff' : '#000',
-              cursor: 'pointer',
-              fontSize: 13,
+              marginTop: '0.9rem',
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '0.75rem',
             }}
           >
-            Ver cómo acomodé los platos
-          </button>
+            <button
+              onClick={() => setPlane2View('user')}
+              style={{
+                padding: '0.45rem 1.2rem',
+                borderRadius: 999,
+                border: '1px solid #333',
+                background: plane2View === 'user' ? '#333' : '#fff',
+                color: plane2View === 'user' ? '#fff' : '#000',
+                cursor: 'pointer',
+                fontSize: 13,
+              }}
+            >
+              Ver cómo acomodé los platos
+            </button>
 
-          <button
-            onClick={handleShowAverageView}
-            style={{
-              padding: '0.4rem 1rem',
-              borderRadius: 999,
-              border: '1px solid #333',
-              background: viewMode === 'average' ? '#333' : '#fff',
-              color: viewMode === 'average' ? '#fff' : '#000',
-              cursor: 'pointer',
-              fontSize: 13,
-            }}
-          >
-            Ver votación promedio de la gente
-          </button>
-        </div>
-      </section>
+            <button
+              onClick={() => setPlane2View('average')}
+              style={{
+                padding: '0.45rem 1.2rem',
+                borderRadius: 999,
+                border: '1px solid #333',
+                background: plane2View === 'average' ? '#333' : '#fff',
+                color: plane2View === 'average' ? '#fff' : '#000',
+                cursor: 'pointer',
+                fontSize: 13,
+              }}
+            >
+              Ver votación promedio de la gente
+            </button>
+          </div>
+        </section>
+      )}
     </main>
   );
 }
-
-
-
-
-
