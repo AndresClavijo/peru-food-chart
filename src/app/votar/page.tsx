@@ -40,8 +40,7 @@ type DensityPoint = { x: number; y: number; count: number };
 
 type Plane2View = 'average' | 'user';
 
-const BOARD_SIZE = 500;
-const PALETTE_HEIGHT = 110;
+const BOARD_SIZE = 500; // solo para algunos textos; el layout viene de CSS
 
 const DISHES: Dish[] = [
   {
@@ -108,7 +107,8 @@ const DISHES: Dish[] = [
     id: 11,
     name: 'Tacacho con Cecina',
     imageUrl: '/tacacho-con-cecina.png',
-    description: 'Plátano asado y machacado con chicharrón, acompañado de cecina.',
+    description:
+      'Plátano asado y machacado con chicharrón, acompañado de cecina.',
   },
   {
     id: 12,
@@ -298,7 +298,6 @@ export default function VotarPage() {
         return;
       }
 
-      // Cargamos promedios + densidad y pasamos al plano 2
       await Promise.all([fetchAverages(), fetchDensity()]);
       setPlane2View('average');
       setHasSubmitted(true);
@@ -311,19 +310,8 @@ export default function VotarPage() {
   }
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '2rem',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        fontFamily: 'system-ui, sans-serif',
-        padding: '2rem 1rem',
-      }}
-    >
-      <section style={{ textAlign: 'center', maxWidth: 700 }}>
+    <main className="page-main">
+      <section className="page-section-text">
         <h1 style={{ fontSize: '2.4rem', fontWeight: 'bold' }}>
           Evaluar platos de comida peruana
         </h1>
@@ -336,55 +324,54 @@ export default function VotarPage() {
       {/* Plano 1: votar */}
       {!hasSubmitted && (
         <section>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '2rem',
-            }}
-          >
+          <div className="votar-layout">
             {/* Plano + fila de platos */}
-            <div
-              id="drag-area"
-              style={{
-                position: 'relative',
-                width: BOARD_SIZE,
-                height: BOARD_SIZE + PALETTE_HEIGHT,
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: PALETTE_HEIGHT,
-                }}
-              >
-                <ChartBoard />
-              </div>
+            <div className="drag-area-wrapper">
+              <div id="drag-area" className="drag-area-inner">
+                {/* Plano cartesiano desplazado hacia abajo */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 110, // PALETTE_HEIGHT
+                  }}
+                >
+                  <ChartBoard />
+                </div>
 
-              {DISHES.map((dish, idx) => {
-                const initialX = (idx + 0.5) / DISHES.length;
-                return (
-                  <DraggableDish
-                    key={dish.id}
-                    id={dish.id}
-                    name={dish.name}
-                    imageUrl={dish.imageUrl}
-                    initialX={initialX}
-                    initialY={0}
-                    onChange={handleChange}
-                  />
-                );
-              })}
+                {/* Platos en bandeja (2 filas: 7 arriba, 6 abajo) */}
+                {DISHES.map((dish, idx) => {
+                  const FIRST_ROW_COUNT = 7;
+                  const isFirstRow = idx < FIRST_ROW_COUNT;
+
+                  const row = isFirstRow ? 0 : 1;
+                  const col = isFirstRow ? idx : idx - FIRST_ROW_COUNT;
+                  const colsInRow = isFirstRow
+                    ? FIRST_ROW_COUNT
+                    : DISHES.length - FIRST_ROW_COUNT; // 6 en la segunda fila
+
+                  // Distribuimos cada fila a lo ancho de la bandeja (0..1)
+                  const initialX = (col + 0.5) / colsInRow;
+                  const initialY = row; // 0 = fila de arriba, 1 = fila de abajo
+
+                  return (
+                    <DraggableDish
+                      key={dish.id}
+                      id={dish.id}
+                      name={dish.name}
+                      imageUrl={dish.imageUrl}
+                      initialX={initialX}
+                      initialY={initialY}
+                      onChange={handleChange}
+                    />
+                  );
+                })}
+
+              </div>
             </div>
 
             {/* Progreso + botón verde */}
-            <div
-              style={{
-                minWidth: 210,
-                fontSize: 14,
-              }}
-            >
+            <div className="progress-sidebar">
               <h3
                 style={{
                   fontWeight: 'bold',
@@ -443,7 +430,7 @@ export default function VotarPage() {
 
       {/* Plano 2: resultados */}
       {hasSubmitted && (
-        <section style={{ width: BOARD_SIZE }}>
+        <section className="results-section">
           <h2
             style={{
               fontSize: '1.6rem',
@@ -466,102 +453,98 @@ export default function VotarPage() {
             encima para ver el nombre.
           </p>
 
-          <div
-            style={{
-              marginTop: '1rem',
-              position: 'relative',
-              width: BOARD_SIZE,
-              height: BOARD_SIZE,
-            }}
-          >
-            <ChartBoard />
+          <div className="results-board-wrapper">
+            <div className="results-board-inner">
+              <ChartBoard />
 
-            {/* Vistas con fade */}
-            <div style={{ position: 'absolute', inset: 0 }}>
-              {/* Promedio */}
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  opacity: plane2View === 'average' ? 1 : 0,
-                  transition: 'opacity 0.4s ease',
-                  pointerEvents: plane2View === 'average' ? 'auto' : 'none',
-                }}
-              >
-                {Object.keys(averages).length === 0 && !loadingResults && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 14,
-                      color: '#666',
-                      textAlign: 'center',
-                      padding: '0 1rem',
-                    }}
-                  >
-                    Aún no hay suficientes votos para mostrar el promedio.
-                  </div>
-                )}
+              {/* Vistas con fade */}
+              <div style={{ position: 'absolute', inset: 0 }}>
+                {/* Promedio */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    opacity: plane2View === 'average' ? 1 : 0,
+                    transition: 'opacity 0.4s ease',
+                    pointerEvents:
+                      plane2View === 'average' ? 'auto' : 'none',
+                  }}
+                >
+                  {Object.keys(averages).length === 0 && !loadingResults && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 14,
+                        color: '#666',
+                        textAlign: 'center',
+                        padding: '0 1rem',
+                      }}
+                    >
+                      Aún no hay suficientes votos para mostrar el promedio.
+                    </div>
+                  )}
 
-                {DISHES.map((dish) => {
-                  const avg = averages[dish.id];
-                  if (!avg || avg.count === 0) return null;
-                  return (
-                    <ResultDishMarker
-                      key={`avg-${dish.id}`}
-                      name={dish.name}
-                      imageUrl={dish.imageUrl}
-                      x={avg.x}
-                      y={avg.y}
-                    />
-                  );
-                })}
-              </div>
+                  {DISHES.map((dish) => {
+                    const avg = averages[dish.id];
+                    if (!avg || avg.count === 0) return null;
+                    return (
+                      <ResultDishMarker
+                        key={`avg-${dish.id}`}
+                        name={dish.name}
+                        imageUrl={dish.imageUrl}
+                        x={avg.x}
+                        y={avg.y}
+                      />
+                    );
+                  })}
+                </div>
 
-              {/* Mis votos */}
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  opacity: plane2View === 'user' ? 1 : 0,
-                  transition: 'opacity 0.4s ease',
-                  pointerEvents: plane2View === 'user' ? 'auto' : 'none',
-                }}
-              >
-                {Object.keys(votes).length === 0 && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 14,
-                      color: '#666',
-                      textAlign: 'center',
-                      padding: '0 1rem',
-                    }}
-                  >
-                    No registramos votos tuyos en el plano.
-                  </div>
-                )}
+                {/* Mis votos */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    opacity: plane2View === 'user' ? 1 : 0,
+                    transition: 'opacity 0.4s ease',
+                    pointerEvents: plane2View === 'user' ? 'auto' : 'none',
+                  }}
+                >
+                  {Object.keys(votes).length === 0 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 14,
+                        color: '#666',
+                        textAlign: 'center',
+                        padding: '0 1rem',
+                      }}
+                    >
+                      No registramos votos tuyos en el plano.
+                    </div>
+                  )}
 
-                {DISHES.map((dish) => {
-                  const pos = votes[dish.id];
-                  if (!pos) return null;
-                  return (
-                    <ResultDishMarker
-                      key={`user-${dish.id}`}
-                      name={dish.name}
-                      imageUrl={dish.imageUrl}
-                      x={pos.x}
-                      y={pos.y}
-                    />
-                  );
-                })}
+                  {DISHES.map((dish) => {
+                    const pos = votes[dish.id];
+                    if (!pos) return null;
+                    return (
+                      <ResultDishMarker
+                        key={`user-${dish.id}`}
+                        name={dish.name}
+                        imageUrl={dish.imageUrl}
+                        x={pos.x}
+                        y={pos.y}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -606,7 +589,7 @@ export default function VotarPage() {
             </button>
           </div>
 
-          {/* ---------- Tarjetas por plato con densidad ---------- */}
+          {/* Tarjetas por plato con densidad */}
           <section style={{ marginTop: '2rem' }}>
             <h3
               style={{
@@ -618,19 +601,12 @@ export default function VotarPage() {
               Resultados por plato
             </h3>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                gap: '1.5rem',
-              }}
-            >
+            <div className="dish-cards-grid">
               {DISHES.map((dish) => {
                 const points = density[dish.id] ?? [];
                 const avg = averages[dish.id];
                 const myVote = votes[dish.id];
 
-                // si no hay datos, no mostramos tarjeta
                 if (!avg && !myVote && points.length === 0) return null;
 
                 return (
@@ -646,7 +622,7 @@ export default function VotarPage() {
                       boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
                     }}
                   >
-                    {/* columna izquierda: imagen + texto */}
+                    {/* izquierda: imagen + texto */}
                     <div
                       style={{
                         flex: '0 0 140px',
@@ -688,7 +664,7 @@ export default function VotarPage() {
                       </div>
                     </div>
 
-                    {/* columna derecha: mini-gráfica de densidad */}
+                    {/* derecha: mini-gráfica de densidad */}
                     <div
                       style={{
                         flex: '1 1 auto',
