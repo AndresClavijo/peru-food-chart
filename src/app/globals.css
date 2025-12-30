@@ -69,24 +69,26 @@ body {
 .votar-layout {
   display: flex;
   align-items: flex-start;
+  justify-content: center;
   gap: 2rem;
 }
 
-/* contenedor que puede hacer scroll si hace falta */
+/* Contenedor del área de drag: centra el plano */
 .drag-area-wrapper {
   position: relative;
-  width: 500px;
-  max-width: 100%;
-  overflow-x: auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
-/* el área real de drag: 500px de ancho + alto del plano + bandeja */
+/* Área real de drag: ancho fijo 500px, alto = plano + bandeja */
 .drag-area-inner {
   position: relative;
   width: 500px;
   height: calc(500px + 110px);
 }
 
+/* Columna derecha con progreso y botón */
 .progress-sidebar {
   min-width: 210px;
   font-size: 14px;
@@ -101,10 +103,9 @@ body {
 
 .results-board-wrapper {
   margin-top: 1rem;
-  position: relative;
-  width: 500px;
-  max-width: 100%;
-  overflow-x: auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .results-board-inner {
@@ -128,32 +129,24 @@ body {
     gap: 1.5rem;
   }
 
+  /* Layout en columna: plano arriba, progreso/botón abajo */
   .votar-layout {
     flex-direction: column;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
 
   .progress-sidebar {
     width: 100%;
+    max-width: 500px;
     text-align: center;
   }
 
-  .drag-area-wrapper {
-    width: 100%;
-    overflow-x: visible;
-  }
-
-  .drag-area-inner {
-    margin: 0 auto;
-  }
-
-  .results-board-wrapper {
-    width: 100%;
-  }
-
+  /* Reducimos un poco el plano y lo centramos */
+  .drag-area-inner,
   .results-board-inner {
-    margin: 0 auto;
+    transform: scale(0.9);
+    transform-origin: top center;
   }
 
   .dish-cards-grid {
@@ -161,12 +154,22 @@ body {
   }
 }
 
-/* En móviles muy pequeños, escalamos un poco el plano para que quepa mejor */
+/* En móviles muy pequeños, escalamos un poco más el plano */
 @media (max-width: 480px) {
 
   .drag-area-inner,
   .results-board-inner {
-    transform: scale(0.8);
-    transform-origin: top left;
+    transform: scale(0.75);
+    transform-origin: top center;
+  }
+}
+
+/* Extremadamente pequeños (por si acaso) */
+@media (max-width: 360px) {
+
+  .drag-area-inner,
+  .results-board-inner {
+    transform: scale(0.7);
+    transform-origin: top center;
   }
 }

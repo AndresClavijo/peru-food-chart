@@ -1,147 +1,220 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 type DraggableDishProps = {
   id: number;
   name: string;
   imageUrl?: string;
-  initialX?: number; // 0..1 → posición horizontal en la fila superior
-  initialY?: number; // se mantiene por compatibilidad, ya no lo usamos
-  onChange?: (id: number, x: number, y: number) => void;
+  /**
+   * Posición inicial horizontal en la bandeja, normalizada 0..1
+   * (0 = extremo izquierdo, 1 = extremo derecho).
+   */
+  initialX: number;
+  /**
+   * Para futuras filas; ahora lo usamos solo para calcular Y en la bandeja.
+   */
+  initialY: number;
+  /**
+   * Se llama SOLO cuando el plato se suelta DENTRO del plano cartesiano.
+   * x,y están normalizados en [0,1], con:
+   *   x = 0 izq, 1 der
+   *   y = 0 abajo, 1 arriba
+   */
+  onChange: (id: number, x: number, y: number) => void;
 };
 
-const PALETTE_HEIGHT = 110;
-const CONTAINER_WIDTH = 34;   // ancho del "slot" del plato en la fila
-const CONTAINER_HEIGHT = 80;  // círculo + texto
-const CIRCLE_SIZE = 28;       // tamaño del círculo
+type Pos = { x: number; y: number };
+
+const BOARD_PALETTE_TOP = 40; // altura aprox. de la fila de platos sobre el plano
 
 export default function DraggableDish({
   id,
   name,
   imageUrl,
-  initialX = 0.5,
-  initialY = 0,
+  initialX,
+  initialY,
   onChange,
 }: DraggableDishProps) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const [placed, setPlaced] = useState(false);
-  const [posPx, setPosPx] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<Pos>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [hasBeenPlaced, setHasBeenPlaced] = useState(false);
+  const [pointerType, setPointerType] = useState<'mouse' | 'touch' | null>(null);
 
-  // Posición inicial en la fila superior (fuera del plano)
+  const lastClientPos = useRef<{ x: number; y: number } | null>(null);
+
+  // Posición inicial en la bandeja (una fila arriba del plano)
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const dragArea = document.getElementById('drag-area');
+    if (!dragArea) {
+      const x = initialX * 500;
+      const y = BOARD_PALETTE_TOP + initialY * 50;
+      setPos({ x, y });
+      return;
+    }
+
+    const rect = dragArea.getBoundingClientRect();
+    const x = initialX * rect.width;
+    const y = BOARD_PALETTE_TOP + initialY * 50;
+    setPos({ x, y });
+  }, [initialX, initialY]);
+
+  // Función que traduce coordenadas globales de puntero a coordenadas dentro de drag-area
+  function updatePositionFromClient(clientX: number, clientY: number) {
     const dragArea = document.getElementById('drag-area');
     if (!dragArea) return;
 
-    const rectArea = dragArea.getBoundingClientRect();
+    const rect = dragArea.getBoundingClientRect();
+    const rawX = clientX - rect.left;
+    const rawY = clientY - rect.top;
 
-    const left = initialX * rectArea.width - CONTAINER_WIDTH / 2;
-    const top = (PALETTE_HEIGHT - CIRCLE_SIZE) / 2;
+    const clampedX = Math.max(0, Math.min(rect.width, rawX));
+    const clampedY = Math.max(0, Math.min(rect.height, rawY));
 
-    const clampedLeft = Math.max(0, Math.min(rectArea.width - CONTAINER_WIDTH, left));
-    const clampedTop = Math.max(0, Math.min(PALETTE_HEIGHT - CIRCLE_SIZE, top));
+    setPos({ x: clampedX, y: clampedY });
+  }
 
-    setPosPx({ left: clampedLeft, top: clampedTop });
-  }, [initialX, initialY]);
+  function startDrag(clientX: number, clientY: number, type: 'mouse' | 'touch') {
+    setIsDragging(true);
+    setPointerType(type);
+    lastClientPos.current = { x: clientX, y: clientY };
+    updatePositionFromClient(clientX, clientY);
+  }
 
-  // Drag dentro de drag-area
+  // Handlers de inicio
+  function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    e.preventDefault();
+    startDrag(e.clientX, e.clientY, 'mouse');
+  }
+
+  function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const t = e.touches[0];
+    if (!t) return;
+    startDrag(t.clientX, t.clientY, 'touch');
+  }
+
+  // Efecto que añade listeners globales mientras se arrastra
   useEffect(() => {
-    function onPointerMove(e: PointerEvent) {
-      if (!dragging || !ref.current) return;
-      const dragArea = document.getElementById('drag-area');
-      if (!dragArea) return;
+    if (!isDragging || !pointerType) return;
 
-      const rectArea = dragArea.getBoundingClientRect();
-
-      let left = e.clientX - rectArea.left - CONTAINER_WIDTH / 2;
-      let top = e.clientY - rectArea.top - CIRCLE_SIZE / 2;
-
-      left = Math.max(0, Math.min(rectArea.width - CONTAINER_WIDTH, left));
-      top = Math.max(0, Math.min(rectArea.height - CIRCLE_SIZE, top));
-
-      setPosPx({ left, top });
+    function handleMouseMove(e: MouseEvent) {
+      if (!isDragging || pointerType !== 'mouse') return;
+      e.preventDefault();
+      lastClientPos.current = { x: e.clientX, y: e.clientY };
+      updatePositionFromClient(e.clientX, e.clientY);
     }
 
-    function onPointerUp() {
-      if (!dragging || !ref.current) return;
-      setDragging(false);
-
-      const board = document.getElementById('chart-board');
-      const dragArea = document.getElementById('drag-area');
-      if (!board || !dragArea) return;
-
-      const rectBoard = board.getBoundingClientRect();
-      const rectDish = ref.current.getBoundingClientRect();
-
-      // Centro del círculo
-      const centerX = rectDish.left + rectDish.width / 2;
-      const centerY = rectDish.top + CIRCLE_SIZE / 2;
-
-      const relX = centerX - rectBoard.left;
-      const relY = centerY - rectBoard.top;
-
-      // Si está fuera del plano, no contamos el voto ni marcamos como colocado
-      if (
-        relX < 0 ||
-        relX > rectBoard.width ||
-        relY < 0 ||
-        relY > rectBoard.height
-      ) {
-        return;
-      }
-
-      const xNorm = relX / rectBoard.width;      // 0..1 → barato→caro
-      const yNorm = 1 - relY / rectBoard.height; // 0..1 → no tan rico→muy rico
-
-      setPlaced(true);           // 👈 detiene el temblor
-      onChange?.(id, xNorm, yNorm);
+    function handleMouseUp(e: MouseEvent) {
+      if (!isDragging || pointerType !== 'mouse') return;
+      e.preventDefault();
+      finishDrag(e.clientX, e.clientY);
     }
 
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
+    function handleTouchMove(e: TouchEvent) {
+      if (!isDragging || pointerType !== 'touch') return;
+      const t = e.touches[0];
+      if (!t) return;
+      e.preventDefault();
+      lastClientPos.current = { x: t.clientX, y: t.clientY };
+      updatePositionFromClient(t.clientX, t.clientY);
+    }
+
+    function handleTouchEnd(e: TouchEvent) {
+      if (!isDragging || pointerType !== 'touch') return;
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      const clientX = t?.clientX ?? lastClientPos.current?.x ?? 0;
+      const clientY = t?.clientY ?? lastClientPos.current?.y ?? 0;
+      finishDrag(clientX, clientY);
+    }
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
 
     return () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [dragging, onChange, id]);
+  }, [isDragging, pointerType]);
+
+  function finishDrag(clientX: number, clientY: number) {
+    setIsDragging(false);
+    setPointerType(null);
+
+    const chart = document.getElementById('chart-board');
+    if (!chart) return;
+
+    const rect = chart.getBoundingClientRect();
+
+    const inside =
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom;
+
+    if (!inside) {
+      // Se soltó fuera del plano: el plato se queda en esa posición, pero no registramos voto.
+      return;
+    }
+
+    // Calculamos coordenadas normalizadas [0,1]
+    const nx = (clientX - rect.left) / rect.width;
+    const ny = 1 - (clientY - rect.top) / rect.height; // 1 = arriba, 0 = abajo
+
+    const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+    const xNorm = clamp01(nx);
+    const yNorm = clamp01(ny);
+
+    onChange(id, xNorm, yNorm);
+    setHasBeenPlaced(true);
+  }
+
+  const wobbleAnimation =
+    !hasBeenPlaced && !isDragging
+      ? 'dish-wobble 0.55s ease-in-out infinite alternate'
+      : 'none';
 
   return (
     <div
-      ref={ref}
-      onPointerDown={() => setDragging(true)}
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
       style={{
         position: 'absolute',
-        width: CONTAINER_WIDTH,
-        height: CONTAINER_HEIGHT,
-        cursor: dragging ? 'grabbing' : 'grab',
-        left: posPx ? posPx.left : 0,
-        top: posPx ? posPx.top : 0,
+        left: pos.x,
+        top: pos.y,
+        transform: 'translate(-50%, -50%)',
+        width: 64,
+        height: 64,
+        cursor: isDragging ? 'grabbing' : 'grab',
+        touchAction: 'none', // 👈 permite que el dedo arrastre sin scroll
+        zIndex: isDragging ? 20 : 10,
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        textAlign: 'center',
+        justifyContent: 'center',
+        transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+        animation: wobbleAnimation,
       }}
-      title={name}
     >
-      {/* Círculo con imagen, borde azul y animación sólo si NO está colocado */}
       <div
         style={{
-          width: CIRCLE_SIZE,
-          height: CIRCLE_SIZE,
+          width: 56,
+          height: 56,
           borderRadius: '50%',
           overflow: 'hidden',
+          border: '2px solid #1d4ed8',
           background: '#fff',
-          border: '2px solid #2563eb',
+          boxShadow: '0 3px 8px rgba(0,0,0,0.2)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-          animation: placed
-            ? 'none'
-            : 'dish-wobble 0.8s ease-in-out infinite alternate',
         }}
       >
         {imageUrl ? (
@@ -151,23 +224,30 @@ export default function DraggableDish({
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : (
-          <span style={{ fontSize: 8, padding: 2 }}>{name}</span>
+          <span style={{ fontSize: 11, padding: '0 4px', textAlign: 'center' }}>
+            {name}
+          </span>
         )}
       </div>
 
-      {/* Nombre debajo del círculo */}
-      <div
-        style={{
-          marginTop: 4,
-          fontSize: 9,
-          lineHeight: 1.1,
-          maxWidth: 70,
-        }}
-      >
-        {name}
-      </div>
+      {/* Nombre debajo (solo mientras está en la bandeja) */}
+      {!hasBeenPlaced && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 58,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            fontSize: 10,
+            textAlign: 'center',
+            maxWidth: 80,
+            color: '#111827',
+          }}
+        >
+          {name}
+        </div>
+      )}
     </div>
   );
 }
-
 
