@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import ChartBoard from '../../components/ChartBoard';
 import DraggableDish from '../../components/DraggableDish';
+import DensityChart from '../../components/DensityChart';
 
 type Dish = {
   id: number;
   name: string;
   imageUrl?: string;
+  description: string;
 };
 
 type VotePos = { x: number; y: number };
@@ -27,28 +29,102 @@ type AverageMapItem = {
   count: number;
 };
 
+type DensityRow = {
+  dishId: number;
+  x: number;
+  y: number;
+  count: number;
+};
+
+type DensityPoint = { x: number; y: number; count: number };
+
 type Plane2View = 'average' | 'user';
 
 const BOARD_SIZE = 500;
 const PALETTE_HEIGHT = 110;
 
 const DISHES: Dish[] = [
-  { id: 1, name: 'Ceviche', imageUrl: '/ceviche.png' },
-  { id: 2, name: 'Lomo Saltado', imageUrl: '/lomo-saltado.png' },
-  { id: 3, name: 'Ají de Gallina', imageUrl: '/aji-de-gallina.png' },
-  { id: 4, name: 'Pollo a la Brasa', imageUrl: '/pollo-a-la-brasa.png' },
-  { id: 5, name: 'Causa Limeña', imageUrl: '/causa-limena.png' },
-  { id: 6, name: 'Arroz con Pollo', imageUrl: '/arroz-con-pollo.png' },
-  { id: 7, name: 'Tacu Tacu', imageUrl: '/tacu-tacu.png' },
-  { id: 8, name: 'Parihuela', imageUrl: '/parihuela.png' },
-  { id: 9, name: 'Anticuchos', imageUrl: '/anticuchos.png' },
-  { id: 10, name: 'Juane', imageUrl: '/juane.png' },
-  { id: 11, name: 'Tacacho con Cecina', imageUrl: '/tacacho-con-cecina.png' },
-  { id: 12, name: 'Cuy Chactado', imageUrl: '/cuy-chactado.png' },
-  { id: 13, name: 'Pachamanca', imageUrl: '/pachamanca.png' },
+  {
+    id: 1,
+    name: 'Ceviche',
+    imageUrl: '/ceviche.png',
+    description: 'Pescado fresco marinado en limón, clásico de la costa peruana.',
+  },
+  {
+    id: 2,
+    name: 'Lomo Saltado',
+    imageUrl: '/lomo-saltado.png',
+    description: 'Salteado de carne, cebolla y tomate con papas fritas y arroz.',
+  },
+  {
+    id: 3,
+    name: 'Ají de Gallina',
+    imageUrl: '/aji-de-gallina.png',
+    description: 'Pollo deshilachado en crema de ají amarillo, suave y cremoso.',
+  },
+  {
+    id: 4,
+    name: 'Pollo a la Brasa',
+    imageUrl: '/pollo-a-la-brasa.png',
+    description: 'Pollo asado con sazón especial, uno de los platos más populares.',
+  },
+  {
+    id: 5,
+    name: 'Causa Limeña',
+    imageUrl: '/causa-limena.png',
+    description: 'Capas de puré de papa amarilla rellenas de pollo o atún.',
+  },
+  {
+    id: 6,
+    name: 'Arroz con Pollo',
+    imageUrl: '/arroz-con-pollo.png',
+    description: 'Arroz verde y jugoso con pollo y verduras.',
+  },
+  {
+    id: 7,
+    name: 'Tacu Tacu',
+    imageUrl: '/tacu-tacu.png',
+    description: 'Torta de arroz y frejoles dorada a la plancha.',
+  },
+  {
+    id: 8,
+    name: 'Parihuela',
+    imageUrl: '/parihuela.png',
+    description: 'Caldo contundente de mariscos y pescado.',
+  },
+  {
+    id: 9,
+    name: 'Anticuchos',
+    imageUrl: '/anticuchos.png',
+    description: 'Brochetas marinadas a la parrilla, típicas de la calle.',
+  },
+  {
+    id: 10,
+    name: 'Juane',
+    imageUrl: '/juane.png',
+    description: 'Arroz y pollo envueltos en hoja de bijao, típico de la selva.',
+  },
+  {
+    id: 11,
+    name: 'Tacacho con Cecina',
+    imageUrl: '/tacacho-con-cecina.png',
+    description: 'Plátano asado y machacado con chicharrón, acompañado de cecina.',
+  },
+  {
+    id: 12,
+    name: 'Cuy Chactado',
+    imageUrl: '/cuy-chactado.png',
+    description: 'Cuy frito crocante, plato emblemático andino.',
+  },
+  {
+    id: 13,
+    name: 'Pachamanca',
+    imageUrl: '/pachamanca.png',
+    description: 'Carnes y tubérculos cocidos bajo tierra con piedras calientes.',
+  },
 ];
 
-// Marcador para el plano 2: solo círculo, nombre en tooltip y burbuja al pasar el mouse
+// Marcador del plano 2: solo círculo + tooltip al pasar el mouse
 function ResultDishMarker({
   name,
   imageUrl,
@@ -106,7 +182,6 @@ function ResultDishMarker({
         ) : null}
       </div>
 
-      {/* Tooltip custom encima del círculo (solo si hover) */}
       {hover && (
         <div
           style={{
@@ -133,10 +208,11 @@ function ResultDishMarker({
 export default function VotarPage() {
   const [votes, setVotes] = useState<Record<number, VotePos>>({});
   const [averages, setAverages] = useState<Record<number, AverageMapItem>>({});
+  const [density, setDensity] = useState<Record<number, DensityPoint[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [loadingResults, setLoadingResults] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [plane2View, setPlane2View] = useState<Plane2View>('average'); // 👈 default: promedio
+  const [plane2View, setPlane2View] = useState<Plane2View>('average');
 
   const placedCount = Object.keys(votes).length;
   const remaining = DISHES.length - placedCount;
@@ -173,6 +249,25 @@ export default function VotarPage() {
     }
   }
 
+  async function fetchDensity() {
+    try {
+      const res = await fetch('/api/density');
+      if (!res.ok) {
+        console.error('Error al cargar densidad:', res.status);
+        return;
+      }
+      const data: DensityRow[] = await res.json();
+      const map: Record<number, DensityPoint[]> = {};
+      for (const row of data) {
+        if (!map[row.dishId]) map[row.dishId] = [];
+        map[row.dishId].push({ x: row.x, y: row.y, count: row.count });
+      }
+      setDensity(map);
+    } catch (error) {
+      console.error('Error fetch /api/density:', error);
+    }
+  }
+
   async function handleSeeOthers() {
     if (placedCount === 0) {
       alert('Primero arrastra al menos un plato al plano antes de continuar.');
@@ -203,9 +298,9 @@ export default function VotarPage() {
         return;
       }
 
-      // Cargar promedios y pasar al plano 2
-      await fetchAverages();
-      setPlane2View('average'); // aseguramos que entre mostrando el promedio
+      // Cargamos promedios + densidad y pasamos al plano 2
+      await Promise.all([fetchAverages(), fetchDensity()]);
+      setPlane2View('average');
       setHasSubmitted(true);
     } catch (error) {
       console.error('Error enviando votos:', error);
@@ -238,7 +333,7 @@ export default function VotarPage() {
         </p>
       </section>
 
-      {/* Plano 1: votar (solo mientras no se ha enviado) */}
+      {/* Plano 1: votar */}
       {!hasSubmitted && (
         <section>
           <div
@@ -257,7 +352,6 @@ export default function VotarPage() {
                 height: BOARD_SIZE + PALETTE_HEIGHT,
               }}
             >
-              {/* Plano cartesiano desplazado hacia abajo */}
               <div
                 style={{
                   position: 'absolute',
@@ -268,7 +362,6 @@ export default function VotarPage() {
                 <ChartBoard />
               </div>
 
-              {/* Platos en fila superior */}
               {DISHES.map((dish, idx) => {
                 const initialX = (idx + 0.5) / DISHES.length;
                 return (
@@ -285,7 +378,7 @@ export default function VotarPage() {
               })}
             </div>
 
-            {/* Columna derecha: progreso + botón verde */}
+            {/* Progreso + botón verde */}
             <div
               style={{
                 minWidth: 210,
@@ -348,7 +441,7 @@ export default function VotarPage() {
         </section>
       )}
 
-      {/* Plano 2: resultados (solo después de enviar) */}
+      {/* Plano 2: resultados */}
       {hasSubmitted && (
         <section style={{ width: BOARD_SIZE }}>
           <h2
@@ -369,8 +462,8 @@ export default function VotarPage() {
               color: '#555',
             }}
           >
-            Cada círculo muestra la posición de los platos. Pasa el mouse por encima
-            para ver el nombre.
+            Cada círculo muestra la posición de los platos. Pasa el mouse por
+            encima para ver el nombre.
           </p>
 
           <div
@@ -383,9 +476,9 @@ export default function VotarPage() {
           >
             <ChartBoard />
 
-            {/* Contenedor de vistas con fade */}
+            {/* Vistas con fade */}
             <div style={{ position: 'absolute', inset: 0 }}>
-              {/* Vista promedio */}
+              {/* Promedio */}
               <div
                 style={{
                   position: 'absolute',
@@ -428,7 +521,7 @@ export default function VotarPage() {
                 })}
               </div>
 
-              {/* Vista "mis votos" */}
+              {/* Mis votos */}
               <div
                 style={{
                   position: 'absolute',
@@ -473,7 +566,7 @@ export default function VotarPage() {
             </div>
           </div>
 
-          {/* Botones debajo del plano 2 */}
+          {/* Botones de vista debajo del plano 2 */}
           <div
             style={{
               marginTop: '0.9rem',
@@ -512,6 +605,109 @@ export default function VotarPage() {
               Ver votación promedio de la gente
             </button>
           </div>
+
+          {/* ---------- Tarjetas por plato con densidad ---------- */}
+          <section style={{ marginTop: '2rem' }}>
+            <h3
+              style={{
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                marginBottom: '0.75rem',
+              }}
+            >
+              Resultados por plato
+            </h3>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '1.5rem',
+              }}
+            >
+              {DISHES.map((dish) => {
+                const points = density[dish.id] ?? [];
+                const avg = averages[dish.id];
+                const myVote = votes[dish.id];
+
+                // si no hay datos, no mostramos tarjeta
+                if (!avg && !myVote && points.length === 0) return null;
+
+                return (
+                  <article
+                    key={`card-${dish.id}`}
+                    style={{
+                      display: 'flex',
+                      gap: '1rem',
+                      alignItems: 'stretch',
+                      background: '#fff',
+                      borderRadius: 16,
+                      padding: '0.75rem 0.9rem',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                    }}
+                  >
+                    {/* columna izquierda: imagen + texto */}
+                    <div
+                      style={{
+                        flex: '0 0 140px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      {dish.imageUrl && (
+                        <img
+                          src={dish.imageUrl}
+                          alt={dish.name}
+                          style={{
+                            width: 96,
+                            height: 96,
+                            objectFit: 'cover',
+                            borderRadius: '50%',
+                          }}
+                        />
+                      )}
+                      <div
+                        style={{
+                          fontWeight: 'bold',
+                          fontSize: 15,
+                        }}
+                      >
+                        {dish.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: '#555',
+                        }}
+                      >
+                        {dish.description}
+                      </div>
+                    </div>
+
+                    {/* columna derecha: mini-gráfica de densidad */}
+                    <div
+                      style={{
+                        flex: '1 1 auto',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <DensityChart
+                        points={points}
+                        average={avg ? { x: avg.x, y: avg.y } : null}
+                        userVote={myVote ? { x: myVote.x, y: myVote.y } : null}
+                      />
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
         </section>
       )}
     </main>
