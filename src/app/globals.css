@@ -45,3 +45,128 @@ body {
 .animate-dish-hint {
   animation: dish-wobble 0.8s ease-in-out infinite alternate;
 }
+
+/* ==== Layout general de la página de votación ==== */
+
+.page-main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2rem;
+  padding: 2rem 1rem 3rem;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+}
+
+.page-section-text {
+  text-align: center;
+  max-width: 700px;
+}
+
+/* Plano 1: votar */
+.votar-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+/* contenedor que puede hacer scroll si hace falta */
+.drag-area-wrapper {
+  position: relative;
+  width: 500px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* el área real de drag: 500px de ancho + alto del plano + bandeja */
+.drag-area-inner {
+  position: relative;
+  width: 500px;
+  height: calc(500px + 110px);
+}
+
+.progress-sidebar {
+  min-width: 210px;
+  font-size: 14px;
+}
+
+/* Plano 2: resultados */
+.results-section {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.results-board-wrapper {
+  margin-top: 1rem;
+  position: relative;
+  width: 500px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.results-board-inner {
+  position: relative;
+  width: 500px;
+  height: 500px;
+}
+
+/* Tarjetas de resultados por plato */
+.dish-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+/* ====== Versión móvil / tablets pequeñas ====== */
+
+@media (max-width: 768px) {
+  .page-main {
+    padding: 1.5rem 1rem 2.5rem;
+    gap: 1.5rem;
+  }
+
+  .votar-layout {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .progress-sidebar {
+    width: 100%;
+    text-align: center;
+  }
+
+  .drag-area-wrapper {
+    width: 100%;
+    overflow-x: visible;
+  }
+
+  .drag-area-inner {
+    margin: 0 auto;
+  }
+
+  .results-board-wrapper {
+    width: 100%;
+  }
+
+  .results-board-inner {
+    margin: 0 auto;
+  }
+
+  .dish-cards-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* En móviles muy pequeños, escalamos un poco el plano para que quepa mejor */
+@media (max-width: 480px) {
+
+  .drag-area-inner,
+  .results-board-inner {
+    transform: scale(0.8);
+    transform-origin: top left;
+  }
+}
