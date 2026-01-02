@@ -23,7 +23,7 @@ type DraggableDishProps = {
 type Pos = { x: number; y: number };
 
 // Bandeja en UNA sola fila, por encima del plano
-const TRAY_Y = 20; // píxeles desde el borde superior del drag-area
+const TRAY_Y = 5; // píxeles desde el borde superior del drag-area
 
 export default function DraggableDish({
   id,

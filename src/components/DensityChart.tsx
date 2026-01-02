@@ -146,19 +146,43 @@ export default function DensityChart({
 
             {/* punto promedio */}
             {average && (
-                <circle cx={xs(average.x)} cy={ys(average.y)} r={5} fill="#000" />
+                <g>
+                    <circle cx={xs(average.x)} cy={ys(average.y)} r={5} fill="#000" />
+                    <text
+                        x={xs(average.x) + 7}
+                        y={ys(average.y)}
+                        dy={4}
+                        fontSize={10}
+                        fontWeight={600}
+                        fill="#000"
+                    >
+                        Promedio
+                    </text>
+                </g>
             )}
 
             {/* punto del usuario */}
             {userVote && (
-                <circle
-                    cx={xs(userVote.x)}
-                    cy={ys(userVote.y)}
-                    r={4}
-                    fill="#000"
-                    stroke="#fff"
-                    strokeWidth={1}
-                />
+                <g>
+                    <circle
+                        cx={xs(userVote.x)}
+                        cy={ys(userVote.y)}
+                        r={4}
+                        fill="#000"
+                        stroke="#fff"
+                        strokeWidth={1}
+                    />
+                    <text
+                        x={xs(userVote.x) + 6}
+                        y={ys(userVote.y)}
+                        dy={4}
+                        fontSize={10}
+                        fontWeight={500}
+                        fill="#000"
+                    >
+                        Tu voto
+                    </text>
+                </g>
             )}
 
             {/* etiquetas de ejes (mini versión) */}

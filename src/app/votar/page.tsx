@@ -346,11 +346,12 @@ export default function VotarPage() {
             {/* Área de drag: fila de platos + plano debajo */}
             <div
               id="drag-area"
+              className="drag-area-container"
               style={{
                 position: 'relative',
                 width: TRAY_WIDTH,
                 maxWidth: '100%',
-                height: CHART_SIZE + 80, // suficiente para fila de platos + plano
+                height: CHART_SIZE + 110, // suficiente para fila de platos + plano
                 margin: '0 auto',
               }}
             >
@@ -371,9 +372,10 @@ export default function VotarPage() {
 
               {/* Plano cartesiano centrado debajo de la fila */}
               <div
+                className="chart-wrapper"
                 style={{
                   position: 'absolute',
-                  top: 80, // más abajo para evitar overlap con platos
+                  top: 110, // más abajo para evitar overlap con platos
                   left: '50%',
                   transform: 'translateX(-50%)',
                 }}
@@ -544,13 +546,27 @@ export default function VotarPage() {
                   })}
                 </div>
               </div>
+
+              {/* Total de votos (esquina inferior derecha) - usando el count del primer plato disponible */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: -22,
+                  right: 0,
+                  fontSize: 13,
+                  color: '#666',
+                  fontStyle: 'italic'
+                }}
+              >
+                Votos totales: <span style={{ fontWeight: 'bold' }}>{Object.values(averages)[0]?.count ?? 0}</span>
+              </div>
             </div>
           </div>
 
           {/* Botones para alternar vista */}
           <div
             style={{
-              marginTop: '0.9rem',
+              marginTop: '1.5rem',
               display: 'flex',
               justifyContent: 'center',
               gap: '0.75rem',
@@ -683,7 +699,8 @@ export default function VotarPage() {
             </div>
           </section>
         </section>
-      )}
-    </main>
+      )
+      }
+    </main >
   );
 }

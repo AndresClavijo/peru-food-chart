@@ -173,3 +173,26 @@ body {
     padding-top: 90px;
   }
 }
+
+/* Ajustes específicos para móviles solicitados por el usuario */
+@media (max-width: 600px) {
+
+  /* Reducir altura del contenedor general del drag area */
+  .drag-area-container {
+    height: auto !important;
+    min-height: 440px;
+    /* Suficiente para el chart reducido + platos */
+  }
+
+  /* Ajustar el contenedor del chart: subirlo un poco y forzar tamaño pequeño */
+  .chart-wrapper {
+    top: 70px !important;
+    /* Más arriba que en desktop (110) */
+  }
+
+  /* Forzar tamaño del SVG chart board */
+  .chart-wrapper>#chart-board {
+    width: 320px !important;
+    height: 320px !important;
+  }
+}
