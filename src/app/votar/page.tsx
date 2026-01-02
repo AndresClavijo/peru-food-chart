@@ -40,8 +40,6 @@ type DensityPoint = { x: number; y: number; count: number };
 
 type Plane2View = 'average' | 'user';
 
-const BOARD_SIZE = 500; // solo para algunos textos; el layout viene de CSS
-
 const DISHES: Dish[] = [
   {
     id: 1,
@@ -124,7 +122,7 @@ const DISHES: Dish[] = [
   },
 ];
 
-// Marcador del plano 2: solo círculo + tooltip al pasar el mouse
+// Marcador para el plano 2 (solo círculo + tooltip)
 function ResultDishMarker({
   name,
   imageUrl,
@@ -213,6 +211,9 @@ export default function VotarPage() {
   const [loadingResults, setLoadingResults] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [plane2View, setPlane2View] = useState<Plane2View>('average');
+
+  const TRAY_WIDTH = 740;
+  const CHART_SIZE = 480;
 
   const placedCount = Object.keys(votes).length;
   const remaining = DISHES.length - placedCount;
@@ -311,124 +312,121 @@ export default function VotarPage() {
 
   return (
     <main className="page-main">
-      <section className="page-section-text">
-        <h1 style={{ fontSize: '2.4rem', fontWeight: 'bold' }}>
+      <section className="page-section-text" style={{ marginBottom: 0 }}>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', lineHeight: 1.2 }}>
           Evaluar platos de comida peruana
         </h1>
-        <p style={{ marginTop: '0.5rem', fontSize: 15 }}>
+        <p style={{ marginTop: '0.25rem', fontSize: 14 }}>
           Arrastra cada plato desde la fila superior hacia el plano según qué tan{' '}
           <b>barato o caro</b> y qué tan <b>rico o no tan rico</b> te parece.
         </p>
       </section>
 
-      {/* Plano 1: votar */}
+      {/* PLANO 1: VOTAR */}
       {!hasSubmitted && (
-        <section>
-          <div className="votar-layout">
-            {/* Plano + fila de platos */}
-            <div className="drag-area-wrapper">
-              <div id="drag-area" className="drag-area-inner">
-                {/* Plano cartesiano desplazado hacia abajo */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 110, // PALETTE_HEIGHT
-                  }}
-                >
-                  <ChartBoard />
-                </div>
+        <section
+          style={{
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 800,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.75rem',
+            }}
+          >
 
-                {/* Platos en bandeja (2 filas: 7 arriba, 6 abajo) */}
-                {DISHES.map((dish, idx) => {
-                  const FIRST_ROW_COUNT = 7;
-                  const isFirstRow = idx < FIRST_ROW_COUNT;
 
-                  const row = isFirstRow ? 0 : 1;
-                  const col = isFirstRow ? idx : idx - FIRST_ROW_COUNT;
-                  const colsInRow = isFirstRow
-                    ? FIRST_ROW_COUNT
-                    : DISHES.length - FIRST_ROW_COUNT; // 6 en la segunda fila
+            {/* Área de drag: fila de platos + plano debajo */}
+            <div
+              id="drag-area"
+              style={{
+                position: 'relative',
+                width: TRAY_WIDTH,
+                maxWidth: '100%',
+                height: CHART_SIZE + 80, // suficiente para fila de platos + plano
+                margin: '0 auto',
+              }}
+            >
+              {/* Platos en UNA fila, encima del plano */}
+              {DISHES.map((dish, idx) => {
+                const initialX = (idx + 0.5) / DISHES.length; // 0..1
+                return (
+                  <DraggableDish
+                    key={dish.id}
+                    id={dish.id}
+                    name={dish.name}
+                    imageUrl={dish.imageUrl}
+                    initialX={initialX}
+                    onChange={handleChange}
+                  />
+                );
+              })}
 
-                  // Distribuimos cada fila a lo ancho de la bandeja (0..1)
-                  const initialX = (col + 0.5) / colsInRow;
-                  const initialY = row; // 0 = fila de arriba, 1 = fila de abajo
-
-                  return (
-                    <DraggableDish
-                      key={dish.id}
-                      id={dish.id}
-                      name={dish.name}
-                      imageUrl={dish.imageUrl}
-                      initialX={initialX}
-                      initialY={initialY}
-                      onChange={handleChange}
-                    />
-                  );
-                })}
-
+              {/* Plano cartesiano centrado debajo de la fila */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 80, // más abajo para evitar overlap con platos
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                }}
+              >
+                <ChartBoard size={CHART_SIZE} />
               </div>
             </div>
 
-            {/* Progreso + botón verde */}
-            <div className="progress-sidebar">
-              <h3
+            {/* Progreso + botón abajo (Reubicado) */}
+            <div style={{ textAlign: 'center', marginTop: '0.25rem' }}>
+              <p
                 style={{
-                  fontWeight: 'bold',
-                  marginBottom: '0.5rem',
+                  marginBottom: '1rem',
                   fontSize: 18,
                 }}
               >
-                Progreso
-              </h3>
-              <p style={{ marginBottom: '1rem' }}>
-                Te faltan{' '}
+                <b>Progreso:</b> Te faltan{' '}
                 <span
                   style={{
-                    fontSize: 22,
                     fontWeight: 'bold',
+                    fontSize: 20,
                   }}
                 >
                   {remaining}
                 </span>{' '}
-                plato{remaining === 1 ? '' : 's'} por colocar
+                platos por colocar
               </p>
 
               {placedCount > 0 && (
-                <div style={{ marginTop: '1.5rem' }}>
-                  <p
-                    style={{
-                      fontWeight: 'bold',
-                      marginBottom: '0.5rem',
-                    }}
-                  >
-                    ¿Listo?
-                  </p>
-                  <button
-                    onClick={handleSeeOthers}
-                    disabled={submitting}
-                    style={{
-                      padding: '0.6rem 1.6rem',
-                      borderRadius: 999,
-                      border: 'none',
-                      background: '#22c55e',
-                      color: '#fff',
-                      cursor: submitting ? 'default' : 'pointer',
-                      fontSize: 15,
-                      fontWeight: 600,
-                      boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
-                    }}
-                  >
-                    {submitting ? 'Enviando...' : 'Ver cómo votaron los demás'}
-                  </button>
-                </div>
+                <button
+                  onClick={handleSeeOthers}
+                  disabled={submitting}
+                  style={{
+                    padding: '0.6rem 1.6rem',
+                    borderRadius: 999,
+                    border: 'none',
+                    background: '#22c55e',
+                    color: '#fff',
+                    cursor: submitting ? 'default' : 'pointer',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+                  }}
+                >
+                  {submitting ? 'Enviando...' : 'Ver cómo votaron los demás'}
+                </button>
               )}
             </div>
           </div>
         </section>
       )}
 
-      {/* Plano 2: resultados */}
+      {/* PLANO 2: RESULTADOS */}
       {hasSubmitted && (
         <section className="results-section">
           <h2
@@ -549,7 +547,7 @@ export default function VotarPage() {
             </div>
           </div>
 
-          {/* Botones de vista debajo del plano 2 */}
+          {/* Botones para alternar vista */}
           <div
             style={{
               marginTop: '0.9rem',

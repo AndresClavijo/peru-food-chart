@@ -54,10 +54,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 2rem;
-  padding: 2rem 1rem 3rem;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    sans-serif;
+  padding: 1rem 1rem 1rem;
+  gap: 0.5rem;
 }
 
 .page-section-text {
@@ -70,7 +68,7 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
 /* Contenedor del área de drag: centra el plano */
@@ -81,11 +79,12 @@ body {
   justify-content: center;
 }
 
-/* Área real de drag: ancho fijo 500px, alto = plano + bandeja */
+/* Área real de drag: ocupa el ancho disponible (máx. 500px) */
 .drag-area-inner {
   position: relative;
   width: 500px;
-  height: calc(500px + 110px);
+  /* 500 del plano + 170 del desplazamiento hacia abajo */
+  height: calc(500px + 170px);
 }
 
 /* Columna derecha con progreso y botón */
@@ -110,8 +109,20 @@ body {
 
 .results-board-inner {
   position: relative;
-  width: 500px;
-  height: 500px;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* --- Plano cartesiano interno (ChartBoard) ---
+   Lo hacemos cuadrado y responsive al ancho disponible */
+#chart-board {
+  position: relative;
+  /* El JS controla el tamaño con la prop size, NO limitar aquí con max-width fijo si queremos que crezca. */
+  /* width: 100% !important; */
+  /* max-width: 500px; */
+  /* aspect-ratio: 1 / 1; */
+  /* height: auto !important; */
 }
 
 /* Tarjetas de resultados por plato */
@@ -142,11 +153,12 @@ body {
     text-align: center;
   }
 
-  /* Reducimos un poco el plano y lo centramos */
+  /* Drag area y resultados centrados al ancho de la pantalla */
   .drag-area-inner,
   .results-board-inner {
-    transform: scale(0.9);
-    transform-origin: top center;
+    width: 100%;
+    max-width: 500px;
+    margin: 0 auto;
   }
 
   .dish-cards-grid {
@@ -154,22 +166,10 @@ body {
   }
 }
 
-/* En móviles muy pequeños, escalamos un poco más el plano */
+/* En móviles muy pequeños ajustamos ligeramente el padding superior
+   para que no parezca que se "corta" por abajo */
 @media (max-width: 480px) {
-
-  .drag-area-inner,
-  .results-board-inner {
-    transform: scale(0.75);
-    transform-origin: top center;
-  }
-}
-
-/* Extremadamente pequeños (por si acaso) */
-@media (max-width: 360px) {
-
-  .drag-area-inner,
-  .results-board-inner {
-    transform: scale(0.7);
-    transform-origin: top center;
+  .drag-area-inner {
+    padding-top: 90px;
   }
 }

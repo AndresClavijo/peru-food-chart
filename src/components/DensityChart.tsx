@@ -163,6 +163,7 @@ export default function DensityChart({
 
             {/* etiquetas de ejes (mini versión) */}
             {/* Arriba: Barato */}
+            /* Arriba: Caro */
             <text
                 x={(innerLeft + innerRight) / 2}
                 y={innerTop - 8}
@@ -171,10 +172,10 @@ export default function DensityChart({
                 fontWeight={600}
                 fill="#111827"
             >
-                Barato
+                Caro
             </text>
 
-            {/* Abajo: Caro */}
+/* Abajo: Barato */
             <text
                 x={(innerLeft + innerRight) / 2}
                 y={innerBottom + 12}
@@ -183,8 +184,9 @@ export default function DensityChart({
                 fontWeight={600}
                 fill="#111827"
             >
-                Caro
+                Barato
             </text>
+
 
             {/* Izquierda: No tan rico */}
             <text

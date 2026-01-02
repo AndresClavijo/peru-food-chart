@@ -12,10 +12,6 @@ type DraggableDishProps = {
    */
   initialX: number;
   /**
-   * Para futuras filas; ahora lo usamos solo para calcular Y en la bandeja.
-   */
-  initialY: number;
-  /**
    * Se llama SOLO cuando el plato se suelta DENTRO del plano cartesiano.
    * x,y están normalizados en [0,1], con:
    *   x = 0 izq, 1 der
@@ -26,41 +22,41 @@ type DraggableDishProps = {
 
 type Pos = { x: number; y: number };
 
-const BOARD_PALETTE_TOP = 40; // altura aprox. de la fila de platos sobre el plano
+// Bandeja en UNA sola fila, por encima del plano
+const TRAY_Y = 20; // píxeles desde el borde superior del drag-area
 
 export default function DraggableDish({
   id,
   name,
   imageUrl,
   initialX,
-  initialY,
   onChange,
 }: DraggableDishProps) {
   const [pos, setPos] = useState<Pos>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [hasBeenPlaced, setHasBeenPlaced] = useState(false);
-  const [pointerType, setPointerType] = useState<'mouse' | 'touch' | null>(null);
+  const [pointerType, setPointerType] = useState<'mouse' | 'touch' | null>(
+    null,
+  );
 
   const lastClientPos = useRef<{ x: number; y: number } | null>(null);
 
-  // Posición inicial en la bandeja (una fila arriba del plano)
+  // Posición inicial en una sola fila
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
     const dragArea = document.getElementById('drag-area');
-    if (!dragArea) {
-      const x = initialX * 500;
-      const y = BOARD_PALETTE_TOP + initialY * 50;
-      setPos({ x, y });
-      return;
-    }
+    const areaWidth = dragArea
+      ? dragArea.getBoundingClientRect().width
+      : 500; // fallback
 
-    const rect = dragArea.getBoundingClientRect();
-    const x = initialX * rect.width;
-    const y = BOARD_PALETTE_TOP + initialY * 50;
+    const x = initialX * areaWidth;
+    const y = TRAY_Y;
+
     setPos({ x, y });
-  }, [initialX, initialY]);
+  }, [initialX]);
 
-  // Función que traduce coordenadas globales de puntero a coordenadas dentro de drag-area
+  // Traducir coordenadas del puntero a coordenadas dentro de drag-area
   function updatePositionFromClient(clientX: number, clientY: number) {
     const dragArea = document.getElementById('drag-area');
     if (!dragArea) return;
@@ -82,12 +78,13 @@ export default function DraggableDish({
     updatePositionFromClient(clientX, clientY);
   }
 
-  // Handlers de inicio
+  // Inicio con mouse
   function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
     e.preventDefault();
     startDrag(e.clientX, e.clientY, 'mouse');
   }
 
+  // Inicio con dedo
   function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
     e.preventDefault();
     const t = e.touches[0];
@@ -95,7 +92,7 @@ export default function DraggableDish({
     startDrag(t.clientX, t.clientY, 'touch');
   }
 
-  // Efecto que añade listeners globales mientras se arrastra
+  // Listeners globales mientras arrastras
   useEffect(() => {
     if (!isDragging || !pointerType) return;
 
@@ -161,11 +158,11 @@ export default function DraggableDish({
       clientY <= rect.bottom;
 
     if (!inside) {
-      // Se soltó fuera del plano: el plato se queda en esa posición, pero no registramos voto.
+      // Se soltó fuera del plano: el plato se queda ahí, pero no registramos voto.
       return;
     }
 
-    // Calculamos coordenadas normalizadas [0,1]
+    // Coordenadas normalizadas [0,1]
     const nx = (clientX - rect.left) / rect.width;
     const ny = 1 - (clientY - rect.top) / rect.height; // 1 = arriba, 0 = abajo
 
@@ -182,6 +179,9 @@ export default function DraggableDish({
       ? 'dish-wobble 0.55s ease-in-out infinite alternate'
       : 'none';
 
+  const outerSize = 56;
+  const innerSize = 48;
+
   return (
     <div
       onMouseDown={handleMouseDown}
@@ -191,10 +191,10 @@ export default function DraggableDish({
         left: pos.x,
         top: pos.y,
         transform: 'translate(-50%, -50%)',
-        width: 64,
-        height: 64,
+        width: outerSize,
+        height: outerSize,
         cursor: isDragging ? 'grabbing' : 'grab',
-        touchAction: 'none', // 👈 permite que el dedo arrastre sin scroll
+        touchAction: 'none',
         zIndex: isDragging ? 20 : 10,
         display: 'flex',
         alignItems: 'center',
@@ -205,8 +205,8 @@ export default function DraggableDish({
     >
       <div
         style={{
-          width: 56,
-          height: 56,
+          width: innerSize,
+          height: innerSize,
           borderRadius: '50%',
           overflow: 'hidden',
           border: '2px solid #1d4ed8',
@@ -230,12 +230,12 @@ export default function DraggableDish({
         )}
       </div>
 
-      {/* Nombre debajo (solo mientras está en la bandeja) */}
+      {/* Nombre debajo mientras está en la bandeja */}
       {!hasBeenPlaced && (
         <div
           style={{
             position: 'absolute',
-            top: 58,
+            top: outerSize,
             left: '50%',
             transform: 'translateX(-50%)',
             fontSize: 10,
@@ -250,4 +250,3 @@ export default function DraggableDish({
     </div>
   );
 }
-
