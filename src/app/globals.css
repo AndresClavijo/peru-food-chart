@@ -186,7 +186,7 @@ body {
 
   /* Ajustar el contenedor del chart: subirlo un poco y forzar tamaño pequeño */
   .chart-wrapper {
-    top: 70px !important;
+    top: 130px !important;
     /* Más arriba que en desktop (110) */
   }
 

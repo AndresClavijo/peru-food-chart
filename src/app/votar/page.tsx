@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ChartBoard from '../../components/ChartBoard';
 import DraggableDish from '../../components/DraggableDish';
 import DensityChart from '../../components/DensityChart';
@@ -214,6 +214,62 @@ export default function VotarPage() {
 
   const TRAY_WIDTH = 740;
   const CHART_SIZE = 480;
+  const MOBILE_SLOT_COUNT = 6;
+
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileSlots, setMobileSlots] = useState<(Dish | null)[]>([]);
+
+  // Detectar móvil
+  useEffect(() => {
+    function checkMobile() {
+      setIsMobile(window.innerWidth <= 600);
+    }
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Inicializar slots móviles
+  useEffect(() => {
+    if (!isMobile) return;
+    if (mobileSlots.length === 0) {
+      setMobileSlots(DISHES.slice(0, MOBILE_SLOT_COUNT));
+    }
+  }, [isMobile]);
+
+  // Refillear slots cuando se vota
+  useEffect(() => {
+    if (!isMobile) return;
+    const placedIds = new Set(Object.keys(votes).map(Number));
+
+    setMobileSlots((prevSlots) => {
+      const newSlots = [...prevSlots];
+      let changed = false;
+
+      // 1. Vaciar slots cuyo plato ya fue votado
+      for (let i = 0; i < newSlots.length; i++) {
+        const dish = newSlots[i];
+        if (dish && placedIds.has(dish.id)) {
+          newSlots[i] = null;
+          changed = true;
+        }
+      }
+
+      // 2. Llenar slots vacíos
+      const visibleIds = new Set(newSlots.filter((d) => d !== null).map((d) => d!.id));
+      const candidates = DISHES.filter((d) => !placedIds.has(d.id) && !visibleIds.has(d.id));
+
+      let candidateIdx = 0;
+      for (let i = 0; i < newSlots.length; i++) {
+        if (newSlots[i] === null && candidateIdx < candidates.length) {
+          newSlots[i] = candidates[candidateIdx];
+          candidateIdx++;
+          changed = true;
+        }
+      }
+      return changed ? newSlots : prevSlots;
+    });
+  }, [votes, isMobile]);
 
   const placedCount = Object.keys(votes).length;
   const remaining = DISHES.length - placedCount;
@@ -356,8 +412,17 @@ export default function VotarPage() {
               }}
             >
               {/* Platos en UNA fila, encima del plano */}
-              {DISHES.map((dish, idx) => {
-                const initialX = (idx + 0.5) / DISHES.length; // 0..1
+              {(!isMobile
+                ? DISHES // Desktop: render all
+                : mobileSlots // Mobile: render slots
+              ).map((dish, idx) => {
+                if (!dish) return null; // Slot vacío (en transición)
+
+                // Desktop: posición basada en índice total (0..12) y length total
+                // Mobile: posición basada en índice de slot (0..5) y length 6
+                const countForCalc = isMobile ? MOBILE_SLOT_COUNT : DISHES.length;
+                const initialX = (idx + 0.5) / countForCalc;
+
                 return (
                   <DraggableDish
                     key={dish.id}
