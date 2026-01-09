@@ -18,6 +18,7 @@ type DraggableDishProps = {
    *   y = 0 abajo, 1 arriba
    */
   onChange: (id: number, x: number, y: number) => void;
+  placedPos?: { x: number; y: number }; // Posición normalizada (0..1) si ya está en el plano
 };
 
 type Pos = { x: number; y: number };
@@ -31,30 +32,54 @@ export default function DraggableDish({
   imageUrl,
   initialX,
   onChange,
+  placedPos,
 }: DraggableDishProps) {
   const [pos, setPos] = useState<Pos>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [hasBeenPlaced, setHasBeenPlaced] = useState(false);
+  const [hasBeenPlaced, setHasBeenPlaced] = useState(!!placedPos);
   const [pointerType, setPointerType] = useState<'mouse' | 'touch' | null>(
     null,
   );
 
   const lastClientPos = useRef<{ x: number; y: number } | null>(null);
 
-  // Posición inicial en una sola fila
+  // Posición inicial: si trae placedPos, calcular pixel respecto al chart. Si no, usar initialX en bandeja.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const dragArea = document.getElementById('drag-area');
-    const areaWidth = dragArea
-      ? dragArea.getBoundingClientRect().width
-      : 500; // fallback
+    if (!dragArea) return;
 
+    if (placedPos) {
+      // Calcular posición basada en el ChartBoard
+      const chart = document.getElementById('chart-board');
+      if (chart) {
+        const chartRect = chart.getBoundingClientRect();
+        const areaRect = dragArea.getBoundingClientRect();
+
+        // Relativo al drag-area
+        // x = chartLeft - areaLeft + normalizedX * chartWidth
+        const relLeft = chartRect.left - areaRect.left;
+        const relTop = chartRect.top - areaRect.top;
+
+        const x = relLeft + placedPos.x * chartRect.width;
+        const y = relTop + (1 - placedPos.y) * chartRect.height; // y=1 es arriba (0 en SVG)
+
+        setPos({ x, y });
+        setHasBeenPlaced(true);
+        return;
+      }
+    }
+
+    // Fallback o modo bandeja
+    const areaWidth = dragArea.getBoundingClientRect().width;
     const x = initialX * areaWidth;
     const y = TRAY_Y;
 
     setPos({ x, y });
-  }, [initialX]);
+    // Si NO hay placedPos, asumimos que no ha sido colocado (está en bandeja)
+    if (!placedPos) setHasBeenPlaced(false);
+  }, [initialX, placedPos]);
 
   // Traducir coordenadas del puntero a coordenadas dentro de drag-area
   function updatePositionFromClient(clientX: number, clientY: number) {

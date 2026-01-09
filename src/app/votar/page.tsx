@@ -412,16 +412,24 @@ export default function VotarPage() {
               }}
             >
               {/* Platos en UNA fila, encima del plano */}
+              {/* Platos en UNA fila, encima del plano */}
               {(!isMobile
                 ? DISHES // Desktop: render all
                 : mobileSlots // Mobile: render slots
               ).map((dish, idx) => {
-                if (!dish) return null; // Slot vacío (en transición)
+                if (!dish) return null; // Slot vacío
 
-                // Desktop: posición basada en índice total (0..12) y length total
-                // Mobile: posición basada en índice de slot (0..5) y length 6
+                // En mobile, aplicamos un pequeño "padding virtual" al cálculo de X para centrar visualmente
                 const countForCalc = isMobile ? MOBILE_SLOT_COUNT : DISHES.length;
-                const initialX = (idx + 0.5) / countForCalc;
+
+                // Si es mobile, comprimimos el rango 0..1 a 0.1..0.9 para que no queden pegados a los bordes
+                // Y alineamos al centro.
+                let initialX = (idx + 0.5) / countForCalc;
+
+                if (isMobile) {
+                  // Ajuste fino para centrar: rango efectivo 10% a 90%
+                  initialX = 0.08 + (initialX * 0.84);
+                }
 
                 return (
                   <DraggableDish
@@ -430,6 +438,29 @@ export default function VotarPage() {
                     name={dish.name}
                     imageUrl={dish.imageUrl}
                     initialX={initialX}
+                    onChange={handleChange}
+                  />
+                );
+              })}
+
+              {/* Mobile: Renderizar platos YA COLOCADOS (que salieron de los slots) para que no desaparezcan */}
+              {isMobile && DISHES.map(dish => {
+                const vote = votes[dish.id];
+                if (!vote) return null; // Si no tiene voto, está en mobileSlots (o en espera), ya se renderizó arriba o no toca
+
+                // Verificar si está en algun slot visible (caso borde: recien arrastrado). 
+                // Si está en slots, ya se renderiza arriba. Pero "votes" se actualiza al soltar.
+                // Nuestra logica de slots los quita de mobileSlots apenas hay voto. 
+                // Así que aquí renderizamos SOLO si tiene voto.
+
+                return (
+                  <DraggableDish
+                    key={`placed-${dish.id}`}
+                    id={dish.id}
+                    name={dish.name}
+                    imageUrl={dish.imageUrl}
+                    initialX={0.5} // No importa, gana placedPos
+                    placedPos={vote}
                     onChange={handleChange}
                   />
                 );
